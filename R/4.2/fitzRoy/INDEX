@@ -1,0 +1,46 @@
+calculate_coaches_vote_possibilities
+                        Calculate Coaches Vote Possibilities
+fetch_betting_odds_footywire
+                        Fetch AFL match betting odds from
+                        https://www.footywire.com
+fetch_coaches_votes     Fetch Coaches Votes
+fetch_fixture           Return the fixture for a particular round of
+                        matches
+fetch_ladder            Fetch Ladder
+fetch_lineup            Return the selected lineup for any completed or
+                        upcoming matches
+fetch_player_details    Fetch Player Details
+fetch_player_stats      Fetch Player Stats
+fetch_results           Fetch Results
+fetch_score_worm_data   Plot Score Worm
+fetch_squiggle_data     Access Squiggle data using the squiggle API
+                        service.
+get_afl_colour_palettes
+                        Returns a table with the colour palettes for
+                        all teams
+get_afl_cookie          Get AFL Stats cookie (internal function)
+get_aflw_detailed_data
+                        Get detailed AFLW data
+get_aflw_detailed_match_data
+                        Get detailed womens match data (internal
+                        function)
+get_aflw_round_data     Get match data (internal function)
+get_aflw_rounds         Get rounds (internal function)
+get_score_progression_raw
+                        Get raw score progression data
+parse_team_abbr         Internal function to ensure names match between
+                        different sources and also name changes. This
+                        gets applied to any web scraper
+plot_score_worm         Plot Score Worm
+plot_score_worm_totals
+                        Plot Score Worm Totals
+replace_teams           Internal function to ensure names match between
+                        different sources and also name changes. This
+                        gets applied to any web scraper
+replace_venues          Internal function to ensure venue names match
+                        between different sources and also name changes
+                        across time. This gets applied to any web
+                        scraper, transforming all of them to AFL Tables
+                        naming conventions.
+team_abr_afl            Internal function to return team name
+                        abbreviation for AFL API

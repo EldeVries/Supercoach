@@ -1,0 +1,144 @@
+---
+title: "Main Fetch functions"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Main Fetch functions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+not_cran <- identical(Sys.getenv("NOT_CRAN"), "true")
+online <- !is.null(curl::nslookup("r-project.org", error = FALSE))
+eval_param <- not_cran & online
+
+knitr::opts_chunk$set(
+  eval = eval_param,
+  message = FALSE,
+  warning = FALSE,
+  collapse = TRUE,
+  comment = "#>"
+)
+
+library(fitzRoy)
+library(dplyr)
+```
+
+The goal of fitzRoy has been to provide a consistent and easy to use interface for accessing data from various sources. As of version 0.3.3.9000 of `fitzRoy`, the package now contains a much more consistent API to do so. This is with the introduction of the main `fetch_*` functions. 
+
+Each function uses the same arguments and each argument should behave the same across all of the functions. While there may be some slight differences in behaviour between different sources of data, the goal will be to move towards a much more consistent pattern of behaviour.
+
+# Main functions
+There are a number of main functions
+
+* `fetch_fixture` - returns the fixture for a given round and season
+* `fetch_lineup` - returns the lineup any matches in a given round and season
+* `fetch_results` - returns the match results for a given round and season
+* `fetch_ladder` - returns the ladder for a given round and season
+* `fetch_player_stats` - returns the detailed player stats for a set of matches within a given round or season
+* `fetch_player_details` - returns details on players such as date of birth, height, weight and debut (depending on source)
+
+# Arguments
+Each function generally accepts 4 arguments. These are consistent between functions and provide sane and common defaults. The common arguments are:
+
+* `season` - the season or seasons to return data from. If NULL (the default), will return the season that matches `Sys.Date()`
+* `round_number`- the round to return data from. If NULL (the default), will return data from all rounds
+* `source` - the source with which to return data from. Must be one of "AFL" (default), "footywire", "fryzigg", "afltables", "squiggle"
+* `comp` - the competition to return data from. Must be one of "AFLM" (default), "AFLW", "VFL", "VFLW", "WAFL", "U18B" or "U18G." Not all data sources will have non-AFL data.
+
+# Examples
+
+## Basic Usage
+All of the functions behave the same. The following are some examples using the `fetch_fixture` function but can equally be applied to any of the family of `fetch_` functions.
+
+```{r fetch_fixture, eval=FALSE, include=TRUE}
+fetch_fixture(2021)
+```
+```{r fetch_fixture_included, echo=FALSE, eval=eval_param}
+fitzRoy:::fixture_afl_aflm_2021
+```
+
+This is the same as 
+
+```{r fetch_fixture2, eval=FALSE, include=TRUE}
+fetch_fixture(season = 2021, comp = "AFLM", source = "AFL")
+```
+
+We can return just one round instead of the whole fixture.
+
+```{r fetch_fixture3, eval=FALSE, include=TRUE}
+fetch_fixture(season = 2021, round_number = 2) %>%
+  select(compSeason.name, round.name, home.team.name, away.team.name, venue.name)
+```
+```{r fetch_fixture3_included, echo=FALSE, eval=eval_param}
+fitzRoy:::fixture_afl_aflm_2021 %>%
+  dplyr::filter(round.roundNumber == 2) %>%
+  dplyr::select(
+    compSeason.name, round.name,
+    home.team.name, away.team.name,
+    venue.name
+  )
+```
+
+
+We could also return the AFLW fixture instead. 
+
+```{r fetch_fixture_aflw, eval=FALSE, include=TRUE}
+fetch_fixture(season = 2021, comp = "AFLW") %>%
+  select(
+    compSeason.name, round.name,
+    home.team.name, away.team.name,
+    venue.name
+  )
+```
+```{r fetch_fixture_aflw_included, echo=FALSE, eval=eval_param}
+fitzRoy:::fixture_afl_aflw_2021 %>%
+  select(
+    compSeason.name, round.name,
+    home.team.name, away.team.name,
+    venue.name
+  )
+```
+Lastly - we can choose a different source. Note that the field names and even the names of the teams and/or venues will be different for difference sources. 
+
+```{r fetch_fixture_squiggle, eval=FALSE, include=TRUE}
+fetch_fixture(2021, round_number = 1, source = "squiggle")
+```
+```{r fetch_fixture_squiggle_included, echo=FALSE, eval=eval_param}
+fitzRoy:::fixture_squiggle_2021
+```
+
+It should also be noted that the various sources of data have their own functions that can be called directly. 
+
+```{r eval=FALSE, include=TRUE}
+# The following are the same
+fetch_fixture(2021, round_number = 5, source = "squiggle")
+fetch_fixture_squiggle(2021, round_number = 5)
+```
+
+
+## Womens Data
+
+With these new functions we now have access to consistent AFLW data for the first time! 
+
+At a high level, any `fetch_` function will allow you to specify the that `comp = "AFLW` and will return data. Please note that Womens data only exists when `source = "AFL"`, which is the default for all `fetch_` functions. 
+
+Read the full [AFL Womens Vingette](https://jimmyday12.github.io/fitzRoy/articles/womens-stats.html) for specific examples. 
+
+## Non-AFL data
+An experimental feature as of version 1.2.0 is returning non-AFL related data. This only works for the source `AFL` but there are other comps that are available. These comps do not have as much data as the AFLM and AFLW comps but some functions will work. 
+
+
+```{r, eval = FALSE}
+fetch_fixture(2022, source = "AFL", comp = "VFL")
+fetch_player_stats(2022, round = 1, source = "AFL", comp = "VFLW")
+fetch_fixture(2022, source = "AFL", comp = "WAFL")
+```
+
+Available comps include
+* "VFL"
+* "VFLW"
+* "WAFL"
+* "U18B"
+* "U18G"
+

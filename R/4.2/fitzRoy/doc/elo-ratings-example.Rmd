@@ -1,0 +1,159 @@
+---
+title: "ELO Ratings Example"
+author: "James Day"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ELO Ratings Example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+not_cran <- identical(Sys.getenv("NOT_CRAN"), "true")
+online <- !is.null(curl::nslookup("r-project.org", error = FALSE))
+eval_param <- not_cran & online
+
+knitr::opts_chunk$set(
+  eval = eval_param,
+  message = FALSE,
+  warning = FALSE,
+  collapse = TRUE,
+  comment = "#>"
+)
+
+
+results <- fitzRoy:::results_afltables_all
+fixture <- fitzRoy:::fixture_footywire_2019
+```
+
+A common example of how one might use `fitzRoy` is for creating a simple [ELO](https://en.wikipedia.org/wiki/Elo_rating_system) rating system. These models are common for tippers that are part of [The Squiggle](https://squiggle.com.au/) and also becoming common in other team sports. This vignette shows a minimum working example to get you started on creating an ELO model from scratch, using `fitzRoy` to get data and [the `elo` package](https://github.com/eheinzen/elo) to do the modelling.
+
+## Load packages
+First we need to grab a few packages. If you don't have any of these, you'll need to install them. 
+
+```{r load_packages, eval=eval_param, message=FALSE, warning=FALSE}
+library(fitzRoy)
+library(dplyr)
+library(elo)
+library(lubridate)
+```
+
+## Get data
+Our first job is to now get the relevant data. For the most basic of ELO models, we need to have the results of past matches that includes the home and away team and the score of the match. To do our predictions, we also need upcoming matches. We can get both of those things using `fitzRoy`.
+
+For this example we will use `results` data from [AFL Tables](https://afltables.com/afl/afl_index.html) and `fixture` data from [Footywire](https://www.footywire.com/). While this is generally fine, it can cause issues with teams, dates, venues or various other data to be inconsistent. This example will try to show some ways to take that into account. 
+
+
+```{r load_data, eval=FALSE, include=TRUE}
+# Get data
+results <- fitzRoy::fetch_results_afltables(1897:2019)
+fixture <- fitzRoy::fetch_fixture_footywire(2019)
+```
+
+We can make sure our results are from before the fixture we are trying to predict for. 
+
+```{r load_data2, eval=eval_param}
+results <- results %>% filter(Date < "2019-01-01")
+tail(results)
+```
+
+
+```{r load_data3, eval=eval_param}
+fixture <- fixture %>% filter(Date > "2019-01-01")
+head(fixture)
+```
+
+## Prepare data
+Before we create our model, some data preparation. In the ELO package we are using, we need a way to identify each round as a separate match, so we'll combine `season` and `Round.Number` into a string as a unique identifier when combined with the team name.  
+
+
+```{r clean_results, eval=eval_param}
+results <- results %>%
+  mutate(seas_rnd = paste0(Season, ".", Round.Number))
+```
+
+Since our `fixture` data and `results` data are coming from different sources, we need to fix a few things up. This is a good time to point out that using similar sources is great when possible! 
+
+```{r clean_fixture, eval=eval_param}
+fixture <- fixture %>%
+  filter(Date > max(results$Date)) %>%
+  mutate(Date = ymd(format(Date, "%Y-%m-%d"))) %>%
+  rename(Round.Number = `Round`)
+
+head(fixture)
+```
+
+## Set ELO parameters
+There are a range of parameters that we can tweak and include in ELO model. Here we set some basic parameters - you can read a bit more on the [PlusSixOne blog](https://www.plussixoneblog.com/), which uses a similar method. For further reading, I strongly recommend checking out [Matter of Stats](http://www.matterofstats.com/mafl-stats-journal/2013/10/13/building-your-own-team-rating-system.html) for a great explainer on the types of parameters that could be included. 
+
+
+```{r elo_param, eval=eval_param}
+# Set parameters
+HGA <- 30 # home ground advantage
+carryOver <- 0.5 # season carry over
+k_val <- 20 # update weighting factor
+```
+
+## Map margin function
+The original ELO models in chess use values of 0 for a loss, 1 for a win and 0.5 for a draw. Since we are adapting these for AFL and we want to use the margin rather than a binary outcome, we need to map our margin to a score between 0 and 1. You can do this in many varied and complex ways, but for now, I just normalise everything based on a margin of -80 to 80. Anything outside of this goes to the margins of 0 or 1.
+
+We create that as a function and then use that function in our elo model. 
+
+```{r margin_outcome, eval=eval_param}
+map_margin_to_outcome <- function(margin, marg.max = 80, marg.min = -80) {
+  norm <- (margin - marg.min) / (marg.max - marg.min)
+  norm %>%
+    pmin(1) %>%
+    pmax(0)
+}
+```
+
+## Calculate ELO results
+Now we are ready to create our ELO ratings! We can use the `elo.run` function from the `elo` package for this. I won't explain everything about what is going on here -  you can read all about it at the package [vignette](https://CRAN.R-project.org/package=elo) - but in general, we provide a function that indicates what is included in our model, as well as some model parameters. 
+
+```{r run_elo, eval=eval_param}
+# Run ELO
+elo.data <- elo.run(
+  map_margin_to_outcome(Home.Points - Away.Points) ~
+    adjust(Home.Team, HGA) +
+    Away.Team +
+    regress(Season, 1500, carryOver) +
+    group(seas_rnd),
+  k = k_val,
+  data = results
+)
+```
+
+Now that is run, we can view our results. The `elo` package provides various ways to do this.
+
+Firstly, using `as.data.frame` we can view the predicted and actual result of each game. Also in this table is the change in ELO rating for the home and away side. See below for the last few games of 2018.
+```{r print_results1, eval=eval_param}
+as.data.frame(elo.data) %>% tail()
+```
+
+We can specifically focus on how each team's rating changes over time using `as.matrix`. Again - viewing the end of 2018 also shows teams that didn't make the finals have the same ELO as the rounds go on since they aren't playing finals. 
+
+```{r print_results2, eval=eval_param}
+as.matrix(elo.data) %>% tail()
+```
+
+Lastly, we can check the final ELO ratings of each team at the end of our data using `final.elos` (here - up to end of 2018). 
+
+```{r print_results3, eval=eval_param}
+final.elos(elo.data)
+```
+
+We could keep tweaking our parameters until we are happy. Ideally we'd have a training and test set and be using some kind of cost function to optimise these values on like a log likelihood, mean absolute margin or something similar. I'll leave that as beyond the scope of this vignette though and assume we are happy with these parameters.
+
+## Do predictions
+Now we've got our ELO model and are happy with our parameters, we can do some predictions! For this, we just need to use our fixture and the `prediction` function with our ELO model as an input. The `elo` package takes care of the result. 
+
+```{r predictions, eval=eval_param}
+fixture <- fixture %>%
+  mutate(Prob = predict(elo.data, newdata = fixture))
+
+head(fixture)
+```
+
+From here - you could turn these probabilities back into a margin through another mapping function. Again - I'll leave that for the reader to decide. 
