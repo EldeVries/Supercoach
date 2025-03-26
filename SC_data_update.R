@@ -1,3 +1,6 @@
+install.packages("shinydashboard")
+install.packages("DT")
+
 #testing, but works the best!!
 
 library(shiny)
@@ -7,6 +10,7 @@ library(fitzRoy)
 library(dplyr)
 library(purrr)
 library(stringr)
+library(DT)
 
 # UI ----------------------------------------------------------------------
 ui <- dashboardPage(
@@ -43,7 +47,7 @@ ui <- dashboardPage(
                 box(
                   title = "Results Preview",
                   width = 12,
-                  dataTableOutput("results_preview")
+                  DT::DTOutput("results_preview")
                 )
               )
       ),
@@ -311,3 +315,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui = ui, server = server)
+
